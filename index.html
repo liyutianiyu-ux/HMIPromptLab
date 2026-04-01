@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HMI × AI 提示词框架库</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2EDE6;
+    --bg2: #EAE3DA;
+    --card: #FDFAF6;
+    --dark: #2A2420;
+    --mid: #5A4E46;
+    --soft: #8C7B72;
+    --accent1: #D4845A;   /* warm terracotta */
+    --accent2: #5B8C6A;   /* forest green */
+    --accent3: #7B94B8;   /* slate blue */
+    --accent4: #C4A85A;   /* golden */
+    --accent5: #B06B8A;   /* dusty rose */
+    --accent6: #6B94A8;   /* muted teal */
+    --border: rgba(42,36,32,0.1);
+    --shadow: 0 4px 24px rgba(42,36,32,0.08);
+    --shadow-hover: 0 12px 40px rgba(42,36,32,0.16);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--dark);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── GRAIN OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(242,237,230,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px;
+  }
+
+  .logo {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700; font-size: 1.1rem;
+    letter-spacing: -0.02em; color: var(--dark);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent1); display: inline-block;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.7} }
+
+  .header-tag {
+    font-size: 0.72rem; font-weight: 500;
+    background: var(--dark); color: var(--bg);
+    padding: 4px 12px; border-radius: 20px;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 5rem 2.5rem 3.5rem;
+    max-width: 900px; margin: 0 auto;
+    text-align: center; position: relative; z-index: 1;
+  }
+
+  .hero-eyebrow {
+    font-size: 0.75rem; font-weight: 500;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent1); margin-bottom: 1.2rem;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .hero-eyebrow::before, .hero-eyebrow::after {
+    content: ''; width: 40px; height: 1px; background: var(--accent1); opacity: 0.5;
+  }
+
+  .hero h1 {
+    font-family: 'Sora', sans-serif;
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    font-weight: 700; line-height: 1.1;
+    letter-spacing: -0.03em; color: var(--dark);
+    margin-bottom: 1.2rem;
+  }
+  .hero h1 span { color: var(--accent1); }
+
+  .hero p {
+    font-size: 1rem; color: var(--mid);
+    line-height: 1.8; max-width: 560px; margin: 0 auto 2.5rem;
+  }
+
+  /* ── SEARCH & FILTER ── */
+  .controls {
+    max-width: 860px; margin: 0 auto 2.5rem;
+    padding: 0 2.5rem;
+    display: flex; gap: 1rem; flex-wrap: wrap;
+    align-items: center; position: relative; z-index: 1;
+  }
+
+  .search-wrap {
+    flex: 1; min-width: 220px; position: relative;
+  }
+  .search-wrap input {
+    width: 100%; padding: 12px 16px 12px 44px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; font-family: 'Noto Sans SC', sans-serif;
+    font-size: 0.9rem; color: var(--dark);
+    outline: none; transition: border-color .2s, box-shadow .2s;
+  }
+  .search-wrap input:focus {
+    border-color: var(--accent1);
+    box-shadow: 0 0 0 3px rgba(212,132,90,0.12);
+  }
+  .search-wrap input::placeholder { color: var(--soft); }
+  .search-icon {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; color: var(--soft);
+  }
+
+  .filter-tabs {
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--card); font-family: 'Noto Sans SC', sans-serif;
+    font-size: 0.8rem; color: var(--mid); cursor: pointer;
+    transition: all .2s; white-space: nowrap;
+  }
+  .filter-btn:hover { border-color: var(--accent1); color: var(--accent1); }
+  .filter-btn.active {
+    background: var(--dark); color: var(--bg);
+    border-color: var(--dark);
+  }
+
+  /* ── COUNT BAR ── */
+  .count-bar {
+    max-width: 860px; margin: 0 auto 1.5rem;
+    padding: 0 2.5rem;
+    font-size: 0.8rem; color: var(--soft);
+    display: flex; align-items: center; gap: 6px;
+    position: relative; z-index: 1;
+  }
+  .count-num {
+    font-family: 'Sora', sans-serif; font-weight: 700;
+    color: var(--accent1); font-size: 1rem;
+  }
+
+  /* ── GRID ── */
+  .grid {
+    max-width: 860px; margin: 0 auto;
+    padding: 0 2.5rem 5rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.2rem; position: relative; z-index: 1;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1.4rem;
+    cursor: pointer;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+    position: relative; overflow: hidden;
+    animation: fadeIn .4s ease both;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+  }
+
+  .card-accent-bar {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 3px; border-radius: 18px 18px 0 0;
+  }
+
+  .card-header {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; margin-bottom: 0.8rem;
+    margin-top: 0.4rem;
+  }
+
+  .card-badge {
+    width: 48px; height: 48px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Sora', sans-serif; font-weight: 700;
+    font-size: 1.15rem; letter-spacing: -0.04em;
+    flex-shrink: 0;
+  }
+
+  .card-meta {
+    text-align: right;
+  }
+  .card-complexity {
+    display: flex; gap: 3px; justify-content: flex-end; margin-bottom: 4px;
+  }
+  .dot-fill { width: 6px; height: 6px; border-radius: 50%; }
+  .card-parts {
+    font-size: 0.68rem; color: var(--soft);
+  }
+
+  .card-title {
+    font-family: 'Sora', sans-serif; font-weight: 700;
+    font-size: 1.05rem; color: var(--dark);
+    margin-bottom: 0.35rem; letter-spacing: -0.02em;
+  }
+
+  .card-subtitle {
+    font-size: 0.75rem; color: var(--accent1);
+    font-weight: 500; margin-bottom: 0.6rem;
+    letter-spacing: 0.02em;
+  }
+
+  .card-desc {
+    font-size: 0.8rem; color: var(--mid);
+    line-height: 1.6; margin-bottom: 1rem;
+  }
+
+  .card-tags {
+    display: flex; gap: 5px; flex-wrap: wrap;
+  }
+  .tag {
+    font-size: 0.65rem; padding: 3px 8px;
+    border-radius: 6px; font-weight: 500;
+    background: var(--bg2); color: var(--mid);
+  }
+
+  .card-arrow {
+    position: absolute; bottom: 1.2rem; right: 1.2rem;
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--bg2); display: flex; align-items: center; justify-content: center;
+    transition: background .2s, transform .2s;
+  }
+  .card:hover .card-arrow {
+    background: var(--dark); transform: translate(2px,-2px);
+  }
+  .card:hover .card-arrow svg { color: white; }
+  .card-arrow svg { width: 14px; height: 14px; color: var(--mid); }
+
+  /* ── MODAL ── */
+  .overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(42,36,32,0.55);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s ease;
+  }
+  .overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--card);
+    border-radius: 24px;
+    max-width: 620px; width: 100%;
+    max-height: 88vh; overflow-y: auto;
+    padding: 2rem;
+    position: relative;
+    transform: scale(0.94) translateY(20px);
+    transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .overlay.open .modal { transform: scale(1) translateY(0); }
+
+  .modal-close {
+    position: absolute; top: 1.2rem; right: 1.2rem;
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--bg2); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .2s;
+    font-size: 1.1rem; color: var(--mid);
+  }
+  .modal-close:hover { background: var(--border); }
+
+  .modal-accent { height: 4px; border-radius: 4px; margin-bottom: 1.5rem; }
+
+  .modal-header {
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .modal-badge {
+    width: 60px; height: 60px; border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Sora', sans-serif; font-weight: 700;
+    font-size: 1.4rem; letter-spacing: -0.04em;
+    flex-shrink: 0;
+  }
+
+  .modal-title {
+    font-family: 'Sora', sans-serif; font-weight: 700;
+    font-size: 1.6rem; letter-spacing: -0.03em; color: var(--dark);
+    line-height: 1.1;
+  }
+  .modal-subtitle {
+    font-size: 0.85rem; color: var(--soft); margin-top: 4px;
+  }
+
+  .modal-desc {
+    font-size: 0.9rem; color: var(--mid); line-height: 1.7;
+    margin-bottom: 1.5rem; padding: 1rem;
+    background: var(--bg2); border-radius: 12px;
+  }
+
+  .steps-label {
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--soft); margin-bottom: 0.8rem;
+  }
+
+  .steps { display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 1.8rem; }
+
+  .step {
+    display: flex; gap: 1rem; align-items: flex-start;
+    padding: 0.9rem 1rem;
+    background: var(--bg); border-radius: 12px;
+    border: 1px solid var(--border);
+    transition: border-color .2s;
+  }
+  .step:hover { border-color: rgba(212,132,90,0.3); }
+
+  .step-letter {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Sora', sans-serif; font-weight: 700;
+    font-size: 1rem; flex-shrink: 0;
+  }
+
+  .step-body { flex: 1; }
+  .step-name {
+    font-weight: 600; font-size: 0.92rem; color: var(--dark);
+    display: flex; align-items: center; gap: 8px; margin-bottom: 3px;
+  }
+  .step-en { font-family: 'Sora', sans-serif; font-size: 0.7rem; color: var(--soft); font-weight: 400; }
+  .step-example { font-size: 0.8rem; color: var(--mid); line-height: 1.55; }
+  .step-example strong { color: var(--soft); font-weight: 500; }
+
+  /* ── TEMPLATE SECTION ── */
+  .template-section { margin-bottom: 1.5rem; }
+  .template-label {
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--soft); margin-bottom: 0.6rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .template-box {
+    background: var(--dark); color: #e8dfd5;
+    border-radius: 12px; padding: 1rem 1.1rem;
+    font-size: 0.82rem; line-height: 1.7;
+    position: relative;
+    font-family: 'Noto Sans SC', monospace;
+  }
+  .template-box .ph { color: var(--accent4); }
+
+  .copy-btn {
+    position: absolute; top: 0.7rem; right: 0.7rem;
+    padding: 5px 12px; border-radius: 8px;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7); font-size: 0.7rem; cursor: pointer;
+    font-family: 'Noto Sans SC', sans-serif;
+    transition: all .2s;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.2); color: white; }
+  .copy-btn.copied { background: var(--accent2); color: white; border-color: var(--accent2); }
+
+  /* ── HMI SCENARIO ── */
+  .hmi-scene {
+    padding: 0.9rem 1rem;
+    background: linear-gradient(135deg, rgba(91,140,106,0.08), rgba(107,148,168,0.08));
+    border: 1px solid rgba(91,140,106,0.2);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .hmi-scene-title {
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent2); margin-bottom: 0.5rem;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .hmi-scene p { font-size: 0.82rem; color: var(--mid); line-height: 1.6; }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    grid-column: 1/-1; text-align: center; padding: 4rem 2rem;
+  }
+  .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+  .empty p { color: var(--soft); font-size: 0.9rem; }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center; padding: 2rem;
+    font-size: 0.75rem; color: var(--soft);
+    border-top: 1px solid var(--border);
+    position: relative; z-index: 1;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    header { padding: 0 1.2rem; }
+    .hero { padding: 3rem 1.2rem 2rem; }
+    .controls, .count-bar, .grid { padding-left: 1.2rem; padding-right: 1.2rem; }
+    .grid { grid-template-columns: 1fr; }
+    .modal { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-dot"></span>
+    HMI Prompt Lab
+  </div>
+  <span class="header-tag">HMI 设计师 AI 工具箱</span>
+</header>
+
+<section class="hero">
+  <div class="hero-eyebrow">Prompt Engineering Frameworks</div>
+  <h1>提示词<span>框架</span>速查库</h1>
+  <p>精选 20 套主流 AI 提示词框架，每套均已适配 HMI 设计场景，帮助你更快、更精准地与 AI 协作</p>
+</section>
+
+<div class="controls">
+  <div class="search-wrap">
+    <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+    </svg>
+    <input type="text" id="searchInput" placeholder="搜索框架名称或关键词…" oninput="filterCards()">
+  </div>
+  <div class="filter-tabs" id="filterTabs">
+    <button class="filter-btn active" onclick="setFilter('all', this)">全部</button>
+    <button class="filter-btn" onclick="setFilter('简单', this)">简单 (3步)</button>
+    <button class="filter-btn" onclick="setFilter('中等', this)">中等 (4步)</button>
+    <button class="filter-btn" onclick="setFilter('复杂', this)">复杂 (5步+)</button>
+  </div>
+</div>
+
+<div class="count-bar">
+  <span class="count-num" id="countNum">20</span>
+  <span>个框架</span>
+</div>
+
+<div class="grid" id="cardGrid"></div>
+
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal"></div>
+</div>
+
+<footer>
+  HMI Prompt Lab · 内容整理自公开提示词资料，场景由 AI 辅助适配 · 2025
+</footer>
+
+<script>
+const COLORS = ['#D4845A','#5B8C6A','#7B94B8','#C4A85A','#B06B8A','#6B94A8','#8A7BC4','#8AAD6B','#C4826B','#6BA8C4'];
+const BG_COLORS = ['rgba(212,132,90,0.1)','rgba(91,140,106,0.1)','rgba(123,148,184,0.1)','rgba(196,168,90,0.1)','rgba(176,107,138,0.1)','rgba(107,148,168,0.1)','rgba(138,123,196,0.1)','rgba(138,173,107,0.1)','rgba(196,130,107,0.1)','rgba(107,168,196,0.1)'];
+
+const frameworks = [
+  {
+    id: 'ape', name: 'APE', subtitle: '行动 + 目的 + 执行',
+    complexity: 1, tags: ['快速出稿','内容生成'],
+    desc: '最精简的三步框架，适合快速启动 AI 生成任务，明确做什么、为了什么、如何做。',
+    hmiScene: '适用场景：为新款 HMI 控制面板撰写产品文案；生成界面交互说明文档；快速产出用户引导话术。',
+    steps: [
+      { letter: 'A', name: '行动', en: 'Action', example: '为车载 HMI 中控屏设计一套深色模式界面文案' },
+      { letter: 'P', name: '目的', en: 'Purpose', example: '帮助驾驶员在夜间驾驶时减少视觉疲劳，提升安全性' },
+      { letter: 'E', name: '执行', en: 'Execution', example: '生成 3 套不同语气风格（专业/亲切/科技感）的界面文案方案' },
+    ],
+    template: '请<ph>[行动：具体任务]</ph>，目的是<ph>[Purpose：期望达成的效果]</ph>。请<ph>[执行方式：数量/格式/风格要求]</ph>。',
+  },
+  {
+    id: 'broke', name: 'BROKE', subtitle: '背景 + 角色 + 目标 + 关键结果 + 演变',
+    complexity: 3, tags: ['复杂项目','目标规划'],
+    desc: '五要素完整框架，适合需要阶段性迭代的复杂 HMI 设计项目，融合 OKR 思维。',
+    hmiScene: '适用场景：制定车载系统 HMI 改版设计计划；规划新能源汽车仪表盘 UI 迭代路线；制定 HMI 设计师 AI 能力提升计划。',
+    steps: [
+      { letter: 'B', name: '背景', en: 'Background', example: '智能座舱 HMI 设计迭代需求增加，团队需提升 AI 辅助效率' },
+      { letter: 'R', name: '角色', en: 'Role', example: '担任资深 HMI 设计顾问，具有 10 年车载界面经验' },
+      { letter: 'O', name: '目标', en: 'Objectives', example: '掌握 AI 生成 HMI 界面文案和交互说明的完整流程' },
+      { letter: 'K', name: '关键结果', en: 'Key Results', example: '完成 5 套界面文案模板并获得产品团队认可，整理 10 个提示词案例' },
+      { letter: 'E', name: '演变', en: 'Evolve', example: '每两周评估模板效果并根据实际用车反馈持续优化' },
+    ],
+    template: '背景：<ph>[项目/场景说明]</ph>。请扮演<ph>[角色定位]</ph>。目标是<ph>[核心目标]</ph>。关键结果：<ph>[可衡量的成果]</ph>。后续演变方向：<ph>[迭代策略]</ph>。',
+  },
+  {
+    id: 'care', name: 'CARE', subtitle: '上下文 + 行动 + 结果 + 示例',
+    complexity: 2, tags: ['内容创作','有示例参考'],
+    desc: '带示例驱动的四步框架，适合需要参考风格的 HMI 文案或交互说明生成。',
+    hmiScene: '适用场景：参考竞品风格生成 HMI 交互说明；以品牌调性为基准产出车载 UI 文案；生成符合特定风格的驾驶模式切换引导语。',
+    steps: [
+      { letter: 'C', name: '上下文', en: 'Context', example: '一款主打科技感的智能电动车，正在设计驾驶模式切换界面' },
+      { letter: 'A', name: '行动', en: 'Action', example: '为「运动/舒适/节能」三种模式设计切换界面的提示文案' },
+      { letter: 'R', name: '结果', en: 'Result', example: '每种模式 2-3 句界面文案，风格简洁有力，符合科技感定位' },
+      { letter: 'E', name: '示例', en: 'Example', example: '参考特斯拉界面风格：简短、直接、带有操控感的语言风格' },
+    ],
+    template: '上下文：<ph>[项目背景]</ph>。行动：<ph>[具体任务]</ph>。期望结果：<ph>[输出格式/数量/风格]</ph>。参考示例：<ph>[风格参考或样本]</ph>。',
+  },
+  {
+    id: 'chat', name: 'CHAT', subtitle: '角色 + 背景 + 目标 + 任务',
+    complexity: 2, tags: ['角色扮演','快速启动'],
+    desc: '对话式四步框架，通过设定 AI 角色和背景，获得更专业的 HMI 领域回答。',
+    hmiScene: '适用场景：让 AI 扮演 HMI 可用性专家审查设计方案；以车载系统架构师视角分析交互逻辑；模拟用户研究员分析驾驶员使用行为。',
+    steps: [
+      { letter: 'C', name: '角色', en: 'Character', example: 'HMI 可用性工程师，专注车载人机界面 10 年' },
+      { letter: 'H', name: '背景', en: 'History', example: '需要评审一套新设计的仪表盘信息架构方案' },
+      { letter: 'A', name: '目标', en: 'Ambition', example: '找出信息层级问题和驾驶安全隐患' },
+      { letter: 'T', name: '任务', en: 'Task', example: '从可用性、安全性、视觉负荷三个维度给出改进建议' },
+    ],
+    template: '你是一位<ph>[专业角色]</ph>。背景：<ph>[当前任务场景]</ph>。目标是<ph>[期望发现或达成的目标]</ph>。请<ph>[具体任务指令]</ph>。',
+  },
+  {
+    id: 'cidi', name: 'CIDI', subtitle: '上下文 + 指令 + 细节 + 输入',
+    complexity: 2, tags: ['数据分析','报告生成'],
+    desc: '结构化四步框架，适合需要处理数据或生成分析报告的 HMI 设计研究场景。',
+    hmiScene: '适用场景：分析用户可用性测试报告；整理眼动仪追踪数据得出界面优化建议；生成 HMI 竞品对比分析报告。',
+    steps: [
+      { letter: 'C', name: '上下文', en: 'Context', example: '你是 HMI 设计团队的数据分析师，需要分析用户可用性测试结果' },
+      { letter: 'I', name: '指令', en: 'Instructions', example: '分析任务完成率、错误率、操作路径效率和主观满意度评分' },
+      { letter: 'D', name: '细节', en: 'Details', example: '报告需包含数据可视化描述，重点关注与上版本的同比变化' },
+      { letter: 'I', name: '输入', en: 'Input', example: '以下是 30 名用户的测试数据和操作录像摘要：[数据]' },
+    ],
+    template: '上下文：<ph>[你的角色和场景]</ph>。指令：<ph>[需要分析/处理什么]</ph>。细节要求：<ph>[格式/重点/限制条件]</ph>。输入数据：<ph>[提供的具体内容]</ph>。',
+  },
+  {
+    id: 'coast', name: 'COAST', subtitle: '上下文 + 目标 + 行动 + 场景 + 任务',
+    complexity: 3, tags: ['问题解决','策略规划'],
+    desc: '五步解决方案框架，适合 HMI 团队面临复杂用户体验问题时制定改进策略。',
+    hmiScene: '适用场景：解决某功能区交互体验下滑问题；制定 HMI 大版本改版行动计划；针对用户投诉集中点设计优化方案。',
+    steps: [
+      { letter: 'C', name: '上下文', en: 'Context', example: '智能座舱语音助手的用户激活率连续三个版本持续下降' },
+      { letter: 'O', name: '目标', en: 'Objective', example: '在下个版本将语音助手月活率提升 15%' },
+      { letter: 'A', name: '行动', en: 'Actions', example: '优化唤醒词设计，改进界面入口可见性，增加新手引导' },
+      { letter: 'S', name: '场景', en: 'Scenario', example: '用户反馈：入口太隐蔽，不知道什么时候能用，唤醒成功率低' },
+      { letter: 'T', name: '任务', en: 'Task', example: '分析根本原因并设计完整的界面优化方案，包括入口重设计和交互流程优化' },
+    ],
+    template: '上下文：<ph>[当前问题描述]</ph>。目标：<ph>[期望改善的指标]</ph>。可选行动：<ph>[已知的改进方向]</ph>。用户场景：<ph>[用户实际反馈/行为]</ph>。任务：<ph>[需要 AI 完成的具体工作]</ph>。',
+  },
+  {
+    id: 'costar', name: 'COSTAR', subtitle: '上下文 + 目标 + 风格 + 语调 + 受众 + 回应',
+    complexity: 3, tags: ['文案创作','品牌调性'],
+    desc: '六要素品牌内容框架，精准控制 HMI 界面文案的风格、语调和目标受众。',
+    hmiScene: '适用场景：为豪华电动车品牌设计 HMI 界面文案；制定车型专属的语音助手对话风格；输出符合品牌调性的 OTA 升级推送文案。',
+    steps: [
+      { letter: 'C', name: '上下文', en: 'Context', example: '某豪华新能源品牌正在进行新旗舰车型 HMI 界面文案设计' },
+      { letter: 'O', name: '目标', en: 'Objective', example: '为「智能驾驶辅助」功能设计一套完整的界面引导文案' },
+      { letter: 'S', name: '风格', en: 'Style', example: '高端、简约、充满科技感，对标 Rivian 品牌调性' },
+      { letter: 'T', name: '语调', en: 'Tone', example: '自信、从容、略带未来感，不过度强调安全警告' },
+      { letter: 'A', name: '受众', en: 'Audience', example: '35-50 岁高净值用户，注重品质体验，有一定科技接受度' },
+      { letter: 'R', name: '回应', en: 'Response', example: '输出 5 组功能开启/关闭/过渡状态的界面文案，每组 3 条' },
+    ],
+    template: '上下文：<ph>[品牌/项目背景]</ph>。目标：<ph>[文案用途]</ph>。风格：<ph>[视觉/语言风格定位]</ph>。语调：<ph>[情感基调]</ph>。受众：<ph>[目标用户画像]</ph>。输出：<ph>[格式/数量要求]</ph>。',
+  },
+  {
+    id: 'create', name: 'CREATE', subtitle: '角色 + 请求 + 示例 + 行动 + 任务 + 执行',
+    complexity: 3, tags: ['创意生成','多步骤任务'],
+    desc: '六步创意执行框架，适合需要参考示例并多轮迭代的 HMI 设计内容创作。',
+    hmiScene: '适用场景：生成车载 AR 导航界面的交互文案；设计多语言版本的 HMI 错误提示语；创作 HMI 新功能的发布推广内容。',
+    steps: [
+      { letter: 'C', name: '角色', en: 'Character', example: '担任专注车载交互的资深 UX 文案撰写人' },
+      { letter: 'R', name: '请求', en: 'Request', example: '为 AR 抬头显示（HUD）导航系统设计界面提示文案' },
+      { letter: 'E', name: '示例', en: 'Examples', example: '参考 Google Maps 语音导航风格：简短、方向明确、不产生歧义' },
+      { letter: 'A', name: '行动', en: 'Action', example: '结合空间感知和驾驶安全考虑，文案需极度简洁' },
+      { letter: 'T', name: '任务', en: 'Task', example: '覆盖转弯/变道/进匝道/进服务区 4 个典型场景' },
+      { letter: 'E', name: '执行', en: 'Execution', example: '每个场景输出 3 条备选文案，并标注适用距离/时机' },
+    ],
+    template: '角色：<ph>[专业身份]</ph>。请求：<ph>[核心任务描述]</ph>。参考示例：<ph>[风格/质量参考]</ph>。行动原则：<ph>[创作限制/要点]</ph>。任务范围：<ph>[需覆盖的场景/内容]</ph>。执行格式：<ph>[输出结构要求]</ph>。',
+  },
+  {
+    id: 'crispe', name: 'CRISPE', subtitle: '能力和角色 + 洞察 + 声明 + 个性 + 实验',
+    complexity: 3, tags: ['深度研究','专家分析'],
+    desc: '五步专家角色框架，获取具有鲜明专业立场和洞察力的 HMI 深度分析。',
+    hmiScene: '适用场景：获取国际 HMI 设计趋势深度洞察；分析某交互设计方案的可行性；生成 HMI 设计规范白皮书草稿。',
+    steps: [
+      { letter: 'CR', name: '能力和角色', en: 'Capacity and Role', example: '作为国际汽车 HMI 设计专家和用户体验研究员' },
+      { letter: 'I', name: '洞察', en: 'Insight', example: '受众是国内智能汽车设计团队，关注国际前沿但需本土化落地' },
+      { letter: 'S', name: '声明', en: 'Statement', example: '请提供 2025 年车载 HMI 设计趋势的深度分析' },
+      { letter: 'P', name: '个性', en: 'Personality', example: '风格犀利客观，不回避争议性观点，善于引用数据支撑' },
+      { letter: 'E', name: '实验', en: 'Experiment', example: '提供 3 个不同角度的分析框架，并推荐最适合国内团队的方向' },
+    ],
+    template: '作为<ph>[专业能力和角色]</ph>，面向<ph>[目标受众洞察]</ph>，请<ph>[核心声明/任务]</ph>。风格要求：<ph>[个性特点]</ph>。请提供<ph>[实验性/多角度输出要求]</ph>。',
+  },
+  {
+    id: 'era', name: 'ERA', subtitle: '期望 + 角色 + 行动',
+    complexity: 1, tags: ['快速启动','明确期望'],
+    desc: '极简三步框架，先说明期望结果，再设定角色，最后描述行动，逻辑清晰。',
+    hmiScene: '适用场景：快速生成 HMI 界面的错误提示文案；获取某控件交互设计的快速建议；生成用户操作引导动效说明文档。',
+    steps: [
+      { letter: 'E', name: '期望', en: 'Expectation', example: '生成一套能显著降低新用户学习成本的车载设置界面引导文案' },
+      { letter: 'R', name: '角色', en: 'Role', example: '担任专注新手体验的 HMI 内容设计师' },
+      { letter: 'A', name: '行动', en: 'Action', example: '撰写 8 条新手引导提示，每条不超过 20 字，采用鼓励性语气' },
+    ],
+    template: '期望：<ph>[最终希望达到的效果]</ph>。请扮演<ph>[专业角色]</ph>，<ph>[具体行动和格式要求]</ph>。',
+  },
+  {
+    id: 'icio', name: 'ICIO', subtitle: '指令 + 背景信息 + 输入数据 + 输出引导',
+    complexity: 2, tags: ['数据处理','格式控制'],
+    desc: '结构化四步框架，精准控制 AI 的输入和输出格式，适合 HMI 文档生成和数据整理。',
+    hmiScene: '适用场景：将用户访谈录音摘要转化为 HMI 设计洞察；整理用户故事为标准 PRD 格式；将竞品分析数据转化为设计建议报告。',
+    steps: [
+      { letter: 'I', name: '指令', en: 'Instruction', example: '将用户访谈摘要整理成 HMI 设计改进洞察报告' },
+      { letter: 'C', name: '背景信息', en: 'Context', example: '我们的产品是一款面向家庭用户的 MPV 车型中控系统' },
+      { letter: 'I', name: '输入数据', en: 'Input Data', example: '[粘贴用户访谈摘要内容]' },
+      { letter: 'O', name: '输出引导', en: 'Output Indicator', example: '按优先级分类输出，每条洞察控制在 50 字以内，附带设计建议' },
+    ],
+    template: '指令：<ph>[任务类型和目标]</ph>。背景：<ph>[产品/项目背景]</ph>。输入数据：<ph>[提供的原始内容]</ph>。输出要求：<ph>[格式/结构/长度限制]</ph>。',
+  },
+  {
+    id: 'rase', name: 'RASE', subtitle: '角色 + 行动 + 结果 + 示例',
+    complexity: 2, tags: ['有参考','结果导向'],
+    desc: '结果导向四步框架，通过示例约束输出质量，适合对齐 HMI 设计规范的内容生成。',
+    hmiScene: '适用场景：参考设计规范生成符合标准的 HMI 交互文案；按照品牌声音指南生成一致性文案；以往期优秀案例为标准生成新内容。',
+    steps: [
+      { letter: 'R', name: '角色', en: 'Role', example: '担任熟悉汽车品牌设计语言的 HMI 文案专家' },
+      { letter: 'A', name: '行动', en: 'Action', example: '为新增的「远程启动」功能设计 App 端推送和车内确认提示文案' },
+      { letter: 'S', name: '结果', en: 'Result', example: '输出 App 通知推送、车内确认弹窗、操作成功反馈三个状态各 2 条文案' },
+      { letter: 'E', name: '示例', en: 'Example', example: '参考现有「车窗控制」功能文案风格：简洁/安全感/操作感强' },
+    ],
+    template: '角色：<ph>[专业身份]</ph>。行动：<ph>[具体任务]</ph>。期望结果：<ph>[输出内容和格式]</ph>。参考示例：<ph>[风格或质量对标]</ph>。',
+  },
+  {
+    id: 'rise', name: 'RISE', subtitle: '角色 + 输入 + 步骤 + 期望',
+    complexity: 2, tags: ['流程梳理','步骤拆解'],
+    desc: '步骤化四步框架，适合将 HMI 设计任务拆解为清晰流程，获取系统性指导。',
+    hmiScene: '适用场景：制定 HMI 可用性测试流程；拆解智能座舱交互设计完整工作流；为 HMI 设计评审建立标准化流程。',
+    steps: [
+      { letter: 'R', name: '角色', en: 'Role', example: '假设你是 HMI 设计团队负责人，需要建立可用性测试标准流程' },
+      { letter: 'I', name: '输入', en: 'Input', example: '团队有 5 人，每季度做 2 次可用性测试，需要覆盖主要功能区域' },
+      { letter: 'S', name: '步骤', en: 'Steps', example: '请提供从测试计划制定到报告输出的完整步骤，包含每步所需时间和产出物' },
+      { letter: 'E', name: '期望', en: 'Expectation', example: '期望每次测试都能产出可落地的 HMI 优化建议，并与研发周期对齐' },
+    ],
+    template: '角色背景：<ph>[执行者的身份和情况]</ph>。已有条件：<ph>[资源/约束/现状]</ph>。步骤要求：<ph>[需要什么样的流程拆解]</ph>。期望达成：<ph>[最终目标和验收标准]</ph>。',
+  },
+  {
+    id: 'roses', name: 'ROSES', subtitle: '角色 + 目标 + 场景 + 期望解决方案 + 步骤',
+    complexity: 3, tags: ['方案策划','协作工具'],
+    desc: '五步解决方案框架，从问题背景到落地步骤，适合 HMI 团队协作策略制定。',
+    hmiScene: '适用场景：制定跨部门 HMI 协作工作流；规划 AI 辅助设计工具的引入方案；设计 HMI 设计规范维护和更新机制。',
+    steps: [
+      { letter: 'R', name: '角色', en: 'Role', example: '作为推动 AI 工具落地的 HMI 设计主管' },
+      { letter: 'O', name: '目标', en: 'Objective', example: '在团队中成功引入 AI 辅助 HMI 界面文案和原型生成工具' },
+      { letter: 'S', name: '场景', en: 'Scenario', example: '团队分布在上海和深圳两地，设计师 AI 使用经验参差不齐' },
+      { letter: 'E', name: '期望解决方案', en: 'Expected solution', example: '希望获得一套渐进式工具引入方案，包含培训计划和效果评估方法' },
+      { letter: 'S', name: '步骤', en: 'Steps', example: '请按月度拆分行动计划，并说明如何衡量每阶段的落地效果' },
+    ],
+    template: '角色：<ph>[负责人身份]</ph>。目标：<ph>[期望达成的改变]</ph>。当前场景：<ph>[实际情况和约束]</ph>。期望方案：<ph>[解决方案的方向]</ph>。步骤：<ph>[需要的执行拆解]</ph>。',
+  },
+  {
+    id: 'rtf', name: 'RTF', subtitle: '角色 + 任务 + 格式',
+    complexity: 1, tags: ['格式控制','快速输出'],
+    desc: '三步极简框架，专注控制输出格式，适合需要特定结构的 HMI 文档快速生成。',
+    hmiScene: '适用场景：生成标准格式的 HMI 交互说明文档；输出 PPT 大纲结构；生成表格化的竞品功能对比报告。',
+    steps: [
+      { letter: 'R', name: '角色', en: 'Role', example: 'HMI 文档工程师，专注车载系统交互说明撰写' },
+      { letter: 'T', name: '任务', en: 'Task', example: '整理「智能泊车」功能的完整交互说明文档' },
+      { letter: 'F', name: '格式', en: 'Format', example: '采用「功能名称→触发条件→交互流程→异常处理→UI 说明」标准结构，使用 Markdown 表格' },
+    ],
+    template: '角色：<ph>[专业身份]</ph>。任务：<ph>[需要完成的工作]</ph>。格式要求：<ph>[具体的结构/排版/长度要求]</ph>。',
+  },
+  {
+    id: 'rtgo', name: 'RTGO', subtitle: '角色 + 任务 + 目标 + 操作要求',
+    complexity: 2, tags: ['精准输出','操作规范'],
+    desc: '四步精准控制框架，在任务中增加目标层级，确保 HMI 内容既准确又有策略性。',
+    hmiScene: '适用场景：生成既准确又符合驾驶安全原则的 HMI 警告文案；设计兼顾品牌调性和法规要求的声明文本；创作技术精准又用户友好的功能介绍。',
+    steps: [
+      { letter: 'R', name: '角色', en: 'Role', example: '担任同时熟悉汽车法规和 HMI 设计的合规文案专家' },
+      { letter: 'T', name: '任务', en: 'Task', example: '为 L2 级自动驾驶辅助功能设计界面警示文案' },
+      { letter: 'G', name: '目标', en: 'Goal', example: '在目标用户中清晰传达功能边界，防止过度依赖，提升安全意识' },
+      { letter: 'O', name: '操作要求', en: 'Objective', example: '文案控制在 30 字以内，必须包含主动接管提醒，避免使用恐吓性语言' },
+    ],
+    template: '角色：<ph>[专业身份]</ph>。任务：<ph>[核心内容任务]</ph>。目标：<ph>[内容需达成的效果]</ph>。操作要求：<ph>[字数/限制/必含元素]</ph>。',
+  },
+  {
+    id: 'sage', name: 'SAGE', subtitle: '情况 + 行动 + 目标 + 预期',
+    complexity: 2, tags: ['问题处理','预期管理'],
+    desc: '情境化四步框架，以具体情况为起点，设定行动和预期，适合 HMI 设计问题复盘。',
+    hmiScene: '适用场景：处理用户反馈集中的 HMI 交互问题；制定某功能上线前的风险预案；分析 HMI 版本更新后的用户体验变化。',
+    steps: [
+      { letter: 'S', name: '情况', en: 'Situation', example: '车载导航系统在高速路段频繁出现界面卡顿，用户投诉增加 40%' },
+      { letter: 'A', name: '行动', en: 'Action', example: '调查卡顿触发条件，协调 UI 动效优化和性能调优' },
+      { letter: 'G', name: '目标', en: 'Goal', example: '两个版本内将导航卡顿投诉率降低 60%，界面流畅度达到行业标杆水平' },
+      { letter: 'E', name: '预期', en: 'Expectation', example: '请提供包含问题根因分析和优先级排序的 HMI 优化方案' },
+    ],
+    template: '当前情况：<ph>[具体问题或触发事件]</ph>。计划行动：<ph>[已知的改进方向]</ph>。目标：<ph>[可量化的改善目标]</ph>。预期产出：<ph>[需要 AI 提供的具体内容]</ph>。',
+  },
+  {
+    id: 'scope', name: 'SCOPE', subtitle: '情境 + 复杂情况 + 目标 + 计划 + 评估',
+    complexity: 3, tags: ['项目规划','评估机制'],
+    desc: '五步项目管理框架，从情境到评估形成完整闭环，适合 HMI 大版本迭代规划。',
+    hmiScene: '适用场景：规划 HMI 年度迭代路线图；制定跨车型设计语言统一计划；建立 HMI 设计质量评估体系。',
+    steps: [
+      { letter: 'S', name: '情境', en: 'Scenario', example: '计划在明年 Q2 完成全系车型 HMI 设计语言统一升级' },
+      { letter: 'C', name: '复杂情况', en: 'Complications', example: '涉及 3 个车型平台、2 个屏幕尺寸、多语言版本，研发资源有限' },
+      { letter: 'O', name: '目标', en: 'Objective', example: '在保证各车型特色的前提下，实现 70% 以上组件和设计规范复用率' },
+      { letter: 'P', name: '计划', en: 'Plan', example: '分阶段推进：先统一设计系统，再逐车型适配，最后整体验收' },
+      { letter: 'E', name: '评估', en: 'Evaluation', example: '每季度通过设计一致性检查和用户满意度调研评估进度' },
+    ],
+    template: '情境：<ph>[项目背景和启动原因]</ph>。复杂因素：<ph>[挑战和约束条件]</ph>。目标：<ph>[期望达成的核心指标]</ph>。计划方向：<ph>[已有的实施思路]</ph>。评估方式：<ph>[如何衡量成功]</ph>。',
+  },
+  {
+    id: 'spa', name: 'SPA', subtitle: '情境 + 问题 + 行动 + 结果',
+    complexity: 2, tags: ['问题解决','故障排查'],
+    desc: '以问题为核心的四步框架，适合 HMI 设计问题的快速诊断和解决方案生成。',
+    hmiScene: '适用场景：快速诊断 HMI 交互设计缺陷；分析功能上线后出现的体验问题；处理 A/B 测试中出现的异常数据。',
+    steps: [
+      { letter: 'S', name: '情境', en: 'Situation', example: '新上线的「一键泊车」功能界面在用户首次使用时完成率仅 35%' },
+      { letter: 'P', name: '问题', en: 'Problem', example: '如何找出导致用户无法顺利完成首次泊车操作的界面设计问题' },
+      { letter: 'A', name: '行动', en: 'Action', example: '分析用户操作录像热点、收集流失节点数据、对比竞品引导设计' },
+      { letter: 'R', name: '结果', en: 'Result', example: '请提供 TOP3 界面改进建议，并预估每项改进对完成率的提升效果' },
+    ],
+    template: '情境：<ph>[问题发生的背景]</ph>。核心问题：<ph>[需要解决的关键疑问]</ph>。已采取行动：<ph>[已知数据和分析]</ph>。期望结果：<ph>[需要的解决方案和格式]</ph>。',
+  },
+  {
+    id: 'tag', name: 'TAG', subtitle: '任务 + 行动 + 目标',
+    complexity: 1, tags: ['极简高效','目标驱动'],
+    desc: '最精简的目标驱动框架，三步清晰说明任务、行动和量化目标，适合 HMI 日常快速提问。',
+    hmiScene: '适用场景：快速生成 HMI 设计方案；获取某界面元素的快速改进建议；生成带有量化目标的设计优化策略。',
+    steps: [
+      { letter: 'T', name: '任务', en: 'Task', example: '优化车载音乐播放器的主界面信息密度' },
+      { letter: 'A', name: '行动', en: 'Action', example: '重新梳理信息层级，突出当前播放信息，简化次级操作区域' },
+      { letter: 'G', name: '目标', en: 'Goal', example: '让驾驶员在 2 秒内完成常用操作，减少分心驾驶风险' },
+    ],
+    template: '任务：<ph>[具体需要做什么]</ph>。行动：<ph>[采用什么方式/策略]</ph>。目标：<ph>[可量化的成功标准]</ph>。',
+  },
+  {
+    id: 'trace', name: 'TRACE', subtitle: '任务 + 请求 + 行动 + 上下文 + 示例',
+    complexity: 3, tags: ['高质量输出','全面信息'],
+    desc: '五步全信息框架，通过充分上下文和示例，获得最高质量的 HMI 设计内容产出。',
+    hmiScene: '适用场景：生成高质量的 HMI 设计提案文档；撰写完整的交互设计规范章节；创作 HMI 功能的深度用户故事。',
+    steps: [
+      { letter: 'T', name: '任务', en: 'Task', example: '撰写「智能情境感知」新功能的完整 HMI 交互提案' },
+      { letter: 'R', name: '请求', en: 'Request', example: '提案需清晰描述功能逻辑、界面状态变化和用户价值' },
+      { letter: 'A', name: '行动', en: 'Action', example: '采用「场景描述→交互流程→界面状态→异常情况」结构组织内容' },
+      { letter: 'C', name: '上下文', en: 'Context', example: '该功能会根据时间、地点、用户习惯自动调整 HMI 显示内容，目标用户是通勤族' },
+      { letter: 'E', name: '示例', en: 'Example', example: '参考苹果 CarPlay 功能介绍风格：以用户场景驱动，突出体验价值' },
+    ],
+    template: '任务：<ph>[核心任务定义]</ph>。请求：<ph>[内容要求和质量标准]</ph>。行动结构：<ph>[内容组织方式]</ph>。上下文：<ph>[产品背景和用户信息]</ph>。示例参考：<ph>[质量/风格对标]</ph>。',
+  },
+];
+
+let activeFilter = 'all';
+
+function getColor(id) {
+  const idx = frameworks.findIndex(f => f.id === id);
+  return COLORS[idx % COLORS.length];
+}
+function getBg(id) {
+  const idx = frameworks.findIndex(f => f.id === id);
+  return BG_COLORS[idx % BG_COLORS.length];
+}
+
+function complexityLabel(c) {
+  if (c === 1) return '简单';
+  if (c === 2) return '中等';
+  return '复杂';
+}
+
+function renderCards(list) {
+  const grid = document.getElementById('cardGrid');
+  const count = document.getElementById('countNum');
+  count.textContent = list.length;
+
+  if (list.length === 0) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><p>没有找到匹配的框架，试试其他关键词</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map((f, i) => {
+    const color = getColor(f.id);
+    const bg = getBg(f.id);
+    const dots = [1,2,3].map(d => `<div class="dot-fill" style="background:${d<=f.complexity?color:'#e0d8d0'}"></div>`).join('');
+    return `
+    <div class="card" onclick="openModal('${f.id}')" style="animation-delay:${i*0.04}s">
+      <div class="card-accent-bar" style="background:${color}"></div>
+      <div class="card-header">
+        <div class="card-badge" style="background:${bg};color:${color}">${f.name}</div>
+        <div class="card-meta">
+          <div class="card-complexity">${dots}</div>
+          <div class="card-parts">${complexityLabel(f.complexity)} · ${f.steps.length} 步</div>
+        </div>
+      </div>
+      <div class="card-title">${f.name} 框架</div>
+      <div class="card-subtitle">${f.subtitle}</div>
+      <div class="card-desc">${f.desc}</div>
+      <div class="card-tags">${f.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <div class="card-arrow">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M7 7h10v10"/>
+        </svg>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setFilter(val, btn) {
+  activeFilter = val;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterCards();
+}
+
+function filterCards() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  let list = frameworks;
+  if (activeFilter !== 'all') list = list.filter(f => complexityLabel(f.complexity) === activeFilter);
+  if (q) list = list.filter(f =>
+    f.name.toLowerCase().includes(q) ||
+    f.subtitle.includes(q) ||
+    f.desc.includes(q) ||
+    f.tags.some(t => t.includes(q))
+  );
+  renderCards(list);
+}
+
+function openModal(id) {
+  const f = frameworks.find(x => x.id === id);
+  if (!f) return;
+  const color = getColor(id);
+  const bg = getBg(id);
+
+  const stepsHtml = f.steps.map(s => `
+    <div class="step">
+      <div class="step-letter" style="background:${bg};color:${color}">${s.letter}</div>
+      <div class="step-body">
+        <div class="step-name">${s.name} <span class="step-en">${s.en}</span></div>
+        <div class="step-example"><strong>示例：</strong>${s.example}</div>
+      </div>
+    </div>
+  `).join('');
+
+  const tplHtml = f.template.replace(/<ph>(.*?)<\/ph>/g, `<span class="ph">$1</span>`);
+
+  document.getElementById('modal').innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-accent" style="background:${color}"></div>
+    <div class="modal-header">
+      <div class="modal-badge" style="background:${bg};color:${color}">${f.name}</div>
+      <div>
+        <div class="modal-title">${f.name} 框架</div>
+        <div class="modal-subtitle">${f.subtitle}</div>
+      </div>
+    </div>
+    <div class="modal-desc">${f.desc}</div>
+
+    <div class="hmi-scene">
+      <div class="hmi-scene-title">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1"/>
+        </svg>
+        HMI 设计师使用场景
+      </div>
+      <p>${f.hmiScene}</p>
+    </div>
+
+    <div class="steps-label">框架拆解</div>
+    <div class="steps">${stepsHtml}</div>
+
+    <div class="template-section">
+      <div class="template-label">
+        <span>提示词模版</span>
+      </div>
+      <div class="template-box">
+        <button class="copy-btn" onclick="copyTemplate(this, \`${f.template.replace(/`/g,'\\`')}\`)">复制</button>
+        ${tplHtml}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('overlay')) return;
+  document.getElementById('overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function copyTemplate(btn, text) {
+  const clean = text.replace(/<[^>]+>/g, '');
+  navigator.clipboard.writeText(clean).then(() => {
+    btn.textContent = '已复制 ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { document.getElementById('overlay').classList.remove('open'); document.body.style.overflow = ''; }
+});
+
+renderCards(frameworks);
+</script>
+</body>
+</html>
